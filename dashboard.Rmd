@@ -1,0 +1,253 @@
+---
+title: "Voces y Datos: Perspectiva LGBTQ"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r}
+load("data_numeric.RData")
+```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(modelsummary)
+library(broom)
+library(ggcorrplot)
+library(psych)
+library(dygraphs)
+load("data_limpia.RData") # Cargar los datos
+```
+
+
+```{css, echo=FALSE}
+.box {
+  width: 100%; /* Establece el ancho del cuadro */
+  margin: 0 auto; /* Centra el cuadro */
+  border: 2px solid #4CAF50;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+}
+```
+
+# 1. Portada
+=====================================
+
+<div style="text-align: center; margin-top: 20%;">
+  <h1>Voces y Datos: Perspectiva LGBTQ</h1>
+  <h3><a href="https://github.com/SofiaParedesOlivares/EP3/blob/main/602-Modulo1287.sav" target="_blank">Repositorio de datos</a></h3>
+</div>
+
+# 2. Variable Dependiente
+=====================================
+Row {data-height=600}
+-------------------------------------
+### Gráfico de Distribución
+
+```{r}
+# Cálculo de media, mediana y moda
+media <- mean(data_numeric$expresion_sin_temor, na.rm = TRUE)
+mediana <- median(data_numeric$expresion_sin_temor, na.rm = TRUE)
+moda <- as.numeric(names(sort(table(data_numeric$expresion_sin_temor), decreasing = TRUE)[1]))
+
+# Gráfico de histograma
+ggplot(data_numeric, aes(x = expresion_sin_temor)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  geom_vline(aes(xintercept = media), color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = mediana), color = "green", linetype = "dotted", size = 1) +
+  geom_vline(aes(xintercept = moda), color = "blue", linetype = "dotdash", size = 1) +
+  annotate("text", x = media, y = 10, label = "Media", color = "red", angle = 90, vjust = -0.5) +
+  annotate("text", x = mediana, y = 10, label = "Mediana", color = "green", angle = 90, vjust = -0.5) +
+  annotate("text", x = moda, y = 10, label = "Moda", color = "blue", angle = 90, vjust = -0.5) +
+  labs(
+    title = "Distribución de la Variable Dependiente",
+    x = "Expresión sin temor de OS e IG",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+```
+
+Row {data-height=600}
+-------------------------------------
+### Observaciones
+
+A partir de estos valores, se puede inferir que la mayoría de las personas en tu muestra no expresan su identidad de género y orientación sexual sin temor. La media y la mediana indican que la distribución está más sesgada hacia el valor 0 (no expresan sin temor), pero hay una proporción significativa de individuos (aproximadamente el 42%) que sí lo hacen. La moda también confirma esta tendencia al ser 0, lo que indica que la respuesta "no" es más frecuente.
+
+Este análisis es útil para identificar cómo se distribuyen las percepciones de expresión de identidad de género y orientación sexual dentro de tu muestra, sugiriendo que hay un nivel importante de temor o inhibición en la expresión de identidad en la mayoría de los individuos de la muestra.
+
+
+# 3. Análisis de variable clave
+=====================================
+
+Row {data-height=600}
+-------------------------------------
+
+
+### Regresión logística. 
+
+```{r}
+modelo1 <- glm(expresion_sin_temor ~ edad + depa_nac + conocimiento_institucion_derechosLGBTIQ +
+                 orientacionsexual + identidadgenero + sufrio_discriminacion +
+                 sociedad_respetuosa + reconocimiento_derechosLGBTIQ,
+               data = data_numeric, family = binomial)
+
+formatoNumero <- function(x) format(x, digits = 4, scientific = FALSE)
+
+modelsummary(modelo1,
+             fmt = formatoNumero,
+             exponentiate = TRUE,
+             statistic = "conf.int",
+             title = "Regresión Logística (Coeficientes Exponenciados)",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Row {data-height=600}
+-------------------------------------
+
+### Gráfico. 
+
+```{r}
+modelo1_tidy <- tidy(modelo1, exponentiate = TRUE, conf.int = TRUE)
+modelo1_tidy <- modelo1_tidy %>% filter(term != "(Intercept)")
+
+ggplot(modelo1_tidy, aes(x = reorder(term, estimate), y = estimate)) +
+  geom_point(color = "blue", size = 3) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, color = "gray") +
+  coord_flip() +
+  labs(
+    title = "Coeficientes Exponenciados de la Regresión Logística",
+    x = "Variables Predictoras",
+    y = "Razón de Probabilidades (OR)"
+  ) +
+  theme_minimal()
+```
+
+Row {data-height=600}
+-------------------------------------
+
+### Conclusiones.
+Los resultados de la regresión logística muestran que varios factores influyen significativamente en la probabilidad de expresar la identidad de género y orientación sexual sin temor. La edad tiene un efecto positivo significativo (coeficiente exponenciado de 1.0032, p < 0.05), lo que sugiere que con cada incremento en la edad, la probabilidad de expresarse sin temor aumenta levemente. La orientación sexual también tiene un coeficiente positivo significativo (1.0755, p < 0.001), indicando que las personas con orientaciones sexuales no heterosexuales tienen mayor probabilidad de expresarse sin temor en comparación con las personas heterosexuales. En contraste, el conocimiento sobre los derechos LGBTIQ muestra un coeficiente negativo significativo (0.7750, p < 0.001), lo que podría indicar que el aumento en el conocimiento sobre los derechos LGBTIQ está asociado con una menor probabilidad de expresión sin temor, posiblemente debido a una mayor conciencia de la discriminación o estigmatización. La identidad de género también presenta un coeficiente negativo significativo (0.8703, p < 0.001), lo que sugiere que las personas transgénero o no binarias tienen una menor probabilidad de expresar su identidad sin temor, en comparación con aquellas cuya identidad de género es cisgénero. Por otro lado, el sufrimiento de discriminación y violencia muestra un coeficiente positivo (1.3105, p < 0.001), lo que implica que las personas que han sufrido discriminación o violencia tienen una mayor probabilidad de expresarse sin temor, posiblemente como una forma de resistencia. Además, la percepción de una sociedad respetuosa (0.7777, p < 0.001) y el reconocimiento de los derechos LGBTIQ (0.8679, p < 0.001) también tienen efectos negativos significativos, sugiriendo que una percepción más baja de respeto social y reconocimiento de derechos LGBTIQ puede estar vinculada a una menor probabilidad de expresión sin temor. Estos hallazgos subrayan la necesidad de políticas públicas que promuevan el respeto y el reconocimiento de los derechos LGBTIQ, a la vez que apoyen la visibilidad y la expresión de identidad en un entorno social inclusivo y libre de discriminación.
+
+# 4. Comparación de modelos
+=====================================
+
+Row {data-height=600}
+-------------------------------------
+
+### Hipótesis 1.
+
+```{r}
+ggplot(data_numeric, aes(x = edad, y = expresion_sin_temor)) +
+  geom_point() +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +
+  theme_minimal() +
+  labs(title = "Hipótesis 1: Expresión según Edad", x = "Edad", y = "Expresión sin Temor")
+```
+
+Row {data-height=600}
+-------------------------------------
+
+### Hipótesis 2.
+
+```{r}
+ggplot(data_numeric, aes(x = as.numeric(orientacionsexual), y = expresion_sin_temor)) +
+  geom_point(aes(color = orientacionsexual), position = position_jitter(width = 0.1, height = 0.1)) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE, color = "blue") +
+  theme_minimal() +
+  labs(
+    title = "Hipótesis 2: Expresión según Orientación Sexual",
+    x = "Orientación Sexual (Codificada)",
+    y = "Expresión sin Temor"
+  )
+```
+
+Row {data-height=600}
+-------------------------------------
+
+### Hipótesis 3.
+
+```{r}
+ggplot(data_numeric, aes(x = sociedad_respetuosa, y = expresion_sin_temor, fill = sociedad_respetuosa)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_minimal() +
+  labs(
+    title = "Hipótesis 3: Expresión según Sociedad Respetuosa",
+    x = "Sociedad Respetuosa",
+    y = "Media de Expresión sin Temor"
+  )
+```
+
+
+# 5. Análisis Factorial
+=====================================
+
+
+Row {data-height=800}
+-------------------------------------
+
+### Grafico de Matriz Correlacionada.
+
+
+```{r}
+corMatrix <- polycor::hetcor(data_numeric)$correlations 
+```
+
+
+```{r}
+ggcorrplot(corMatrix, method = "circle", type = "upper", lab = TRUE, lab_size = 3, 
+           title = "Matriz de Correlación de las Variables", colors = c("blue", "white", "red"))
+```
+
+Row {data-height=600}
+-------------------------------------
+
+### “Scree plot”.
+
+```{r}
+fa.parallel(data_numeric, fa = "fa", cor = "mixed", plot = TRUE)
+```
+
+Row {data-height=600}
+-------------------------------------
+
+
+### Con 2 factores.
+
+```{r}
+resfa <- fa(data_numeric, nfactors = 2, cor = 'mixed', rotate = "varimax", fm = "minres")
+```
+
+```{r}
+fa.diagram(resfa, main = "Resultados del Análisis Factorial Exploratorio")
+```
+
+# 6. Conclusiones y Recomendaciones
+=====================================
+
+### Teóricas.
+
+Si los modelos con más variables (H2 y H3) mejoran significativamente el ajuste en comparación con el modelo simple (H1), podemos concluir que las características personales y sociales juegan un papel importante en la expresión de identidad de género y orientación sexual.
+La significancia de variables como identidad de género, orientación sexual, discriminación y reconocimiento de derechos LGBTIQ podría indicar que estas son áreas clave para entender y abordar la expresión de identidad dentro de la comunidad LGBTIQ.
+Si el conocimiento de instituciones tiene un impacto significativo, las políticas de sensibilización y educación podrían ser cruciales para apoyar la expresión de identidad en la comunidad LGBTIQ.
+
+### Aplicadas a la Gestión Pública.
+
+Si el reconocimiento de los derechos LGBTIQ y la percepción de una sociedad respetuosa son factores significativos, las conclusiones podrían tener implicaciones sobre la necesidad de políticas públicas más inclusivas. Por ejemplo, si la discriminación y la falta de reconocimiento de los derechos LGBTIQ son factores que afectan la expresión de identidad de género y orientación sexual, esto podría sugerir que es importante implementar políticas que protejan y promuevan los derechos LGBTIQ y fomenten una sociedad más respetuosa.
+
+### Recomendaciones.
+
+Con posible aplicación a la Gestión Pública.
+
+
+
+
+
+
+
+
